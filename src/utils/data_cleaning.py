@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from pathlib import Path
 
@@ -5,6 +6,16 @@ import magic
 from PIL import Image
 
 logger = logging.getLogger(__name__)
+
+
+def file_hash(path, chunk_size=8192):
+    sha256 = hashlib.sha256()
+
+    with open(path, "rb") as f:
+        while chunk := f.read(chunk_size):
+            sha256.update(chunk)
+
+    return sha256.hexdigest()
 
 
 def move_file(old_path, new_path):
@@ -42,7 +53,7 @@ def is_image_size_valid(height, width):
     if height < 32 or width < 32:
         ret = False
     ratio = width / height
-    if ratio < 0.33 or ratio > 3.:
+    if ratio < 0.33 or ratio > 3.0:
         ret = False
     return ret
 
@@ -61,12 +72,10 @@ def separate_valid_invalid_images(path, corrupted_files_dir):
             corrupted_files_dir = corrupted_files_dir / path.parent.name
             move_file(path, corrupted_files_dir)
 
+
 def get_file_paths(directory):
-    return [
-        path
-        for path in directory.rglob("*")
-        if path.is_file()
-    ]
+    return [path for path in directory.rglob("*") if path.is_file()]
+
 
 def image_preprocessing():
     data_dir = Path("data")
@@ -75,8 +84,10 @@ def image_preprocessing():
     unclean_dir = data_dir / "unclean"
     corrupted_files_dir = data_dir / "corrupted"
 
-    for dir in [train_dir, test_dir, unclean_dir]:
-        for path in get_file_paths(dir):
-            separate_valid_invalid_images(path, corrupted_files_dir)
+    for data_dir, crop_dir in zip([train_dir, test_dir, unclean_dir], ['train', 'test', 'unclean']):
+        corrupted_file_dir = corrupted_files_dir / crop_dir
+        for path in get_file_paths(data_dir): 
+            separate_valid_invalid_images(path, corrupted_file_dir)
+
 
 image_preprocessing()
