@@ -21,6 +21,7 @@ def find_file_format(filepath):
 
 def can_image_be_loaded(path):
     ret = False
+    width, height = 0, 0
     try:
         with Image.open(path) as img:
             img.verify()
@@ -28,8 +29,20 @@ def can_image_be_loaded(path):
         # Re-open because verify() invalidates the image object
         with Image.open(path) as img:
             img.load()
+            width, height = img.size
         ret = True
     except Exception as e:
+        ret = False
+        width, height = 0, 0
+    return ret, width, height
+
+
+def is_image_size_valid(height, width):
+    ret = True
+    if height < 32 or width < 32:
+        ret = False
+    ratio = width / height
+    if ratio < 0.5 or ratio > 2.0:
         ret = False
     return ret
 
@@ -41,7 +54,15 @@ def check_images_format(directory, corrupted_files_dir):
             logger.info(f"File with path {path} is not an image.")
             corrupted_files_dir = corrupted_files_dir / path.parent.name
             move_file(path, corrupted_files_dir)
-        elif not can_image_be_loaded(path):
+            continue
+
+        is_valid, width, height = can_image_be_loaded(path)
+        if not is_valid:
+            logger.info(f"Invalid/corrupted image: {path}")
+            corrupted_files_dir = corrupted_files_dir / path.parent.name
+            move_file(path, corrupted_files_dir)
+            continue
+        if is_image_size_valid(height, width):
             logger.info(f"Invalid/corrupted image: {path}")
             corrupted_files_dir = corrupted_files_dir / path.parent.name
             move_file(path, corrupted_files_dir)
