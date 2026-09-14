@@ -47,7 +47,7 @@ def is_image_size_valid(height, width):
     return ret
 
 
-def check_images_format(directory, corrupted_files_dir):
+def separate_valid_invalid_images(directory, corrupted_files_dir):
 
     for path in directory.iterdir():
         if find_file_format(path) != "image/jpeg":
@@ -66,3 +66,4 @@ def check_images_format(directory, corrupted_files_dir):
             logger.info(f"Invalid/corrupted image: {path}")
             corrupted_files_dir = corrupted_files_dir / path.parent.name
             move_file(path, corrupted_files_dir)
+
