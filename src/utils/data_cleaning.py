@@ -8,7 +8,7 @@ from PIL import Image
 logger = logging.getLogger(__name__)
 
 
-def file_hash(path, chunk_size=8192):
+def get_file_hash(path, chunk_size=8192):
     sha256 = hashlib.sha256()
 
     with open(path, "rb") as f:
@@ -58,7 +58,17 @@ def is_image_size_valid(height, width):
     return ret
 
 
-def separate_valid_invalid_images(path, corrupted_files_dir):
+def separate_valid_invalid_images(path, corrupted_files_dir, hashes):
+    file_hash = get_file_hash(path)
+    if file_hash in hashes:
+        logger.info(
+            f"File with path {path} has same hash with file {hashes[file_hash]}."
+        )
+        corrupted_files_dir = corrupted_files_dir / path.parent.name
+        move_file(path, corrupted_files_dir)
+        return
+    else:
+        hashes[file_hash] = path
 
     if find_file_format(path) != "image/jpeg":
         logger.info(f"File with path {path} is not an image.")
@@ -83,11 +93,11 @@ def image_preprocessing():
     test_dir = data_dir / "test"
     unclean_dir = data_dir / "unclean"
     corrupted_files_dir = data_dir / "corrupted"
+    hashes = dict()
 
-    for data_dir, crop_dir in zip([train_dir, test_dir, unclean_dir], ['train', 'test', 'unclean']):
+    for data_dir, crop_dir in zip(
+        [train_dir, test_dir, unclean_dir], ["train", "test", "unclean"]
+    ):
         corrupted_file_dir = corrupted_files_dir / crop_dir
-        for path in get_file_paths(data_dir): 
-            separate_valid_invalid_images(path, corrupted_file_dir)
-
-
-image_preprocessing()
+        for path in get_file_paths(data_dir):
+            separate_valid_invalid_images(path, corrupted_file_dir, hashes)
