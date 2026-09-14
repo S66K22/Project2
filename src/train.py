@@ -1,6 +1,7 @@
 import logging
 from collections import Counter
 
+import torch
 import torchvision.transforms.v2 as transforms
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
@@ -12,10 +13,25 @@ logger = logging.getLogger(__name__)
 def create_train_val_loader(path, batch_size=32, test_size=0.2):
     train_transform = transforms.Compose(
         [
-            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+            transforms.ToImage(),
+            transforms.RandomResizedCrop(
+                size=(224, 224),
+                scale=(0.7, 1.0),
+                ratio=(0.75, 1.33),
+            ),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.ColorJitter(
+                brightness=0.3,
+                contrast=0.3,
+                saturation=0.2,
+                hue=0.05,
+            ),
+            transforms.RandomGrayscale(p=0.05),
+            transforms.ToDtype(torch.float32, scale=True),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
+            ),
         ]
     )
 
@@ -23,7 +39,7 @@ def create_train_val_loader(path, batch_size=32, test_size=0.2):
         [
             transforms.Resize(256),
             transforms.CenterCrop(224),
-            transforms.ToTensor(),
+            transforms.ToImage(),
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
         ]
     )
@@ -74,4 +90,3 @@ def create_train_val_loader(path, batch_size=32, test_size=0.2):
         )
 
     return train_loader, val_loader
-
