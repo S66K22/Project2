@@ -2,12 +2,11 @@ import logging
 from collections import Counter
 
 import torch
+import torchmetrics
 import torchvision.transforms.v2 as transforms
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 from torchvision.datasets import ImageFolder
-import torchmetrics
-
 
 logger = logging.getLogger(__name__)
 
@@ -39,19 +38,23 @@ def create_train_val_loader(path, batch_size=32, test_size=0.2):
 
     val_transform = transforms.Compose(
         [
+            transforms.ToImage(),
             transforms.Resize(256),
             transforms.CenterCrop(224),
-            transforms.ToImage(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+            transforms.ToDtype(torch.float32, scale=True),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
+            ),
         ]
     )
     train_full = ImageFolder(
-        "data/train",
+        path,
         transform=train_transform,
     )
 
     val_full = ImageFolder(
-        "data/train",
+        path,
         transform=val_transform,
     )
 
@@ -91,7 +94,8 @@ def create_train_val_loader(path, batch_size=32, test_size=0.2):
             f"val={val_counts[class_idx]:4d}"
         )
 
-    return train_loader, val_loader
+    return train_loader, val_loader, train_full.classes
+
 
 def evaluate_tm(model, data_loader, metric, device):
     model.eval()
@@ -103,10 +107,22 @@ def evaluate_tm(model, data_loader, metric, device):
             metric.update(y_pred, y_batch)
     return metric.compute()
 
-def train(model, optimizer, loss_fn, metric, train_loader, valid_loader,
-          n_epochs, device, patience=10, factor=0.1):
+
+def train(
+    model,
+    optimizer,
+    loss_fn,
+    metric,
+    train_loader,
+    valid_loader,
+    n_epochs,
+    device,
+    patience=10,
+    factor=0.1,
+):
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", patience=patience, factor=factor)
+        optimizer, mode="min", patience=patience, factor=factor
+    )
     history = {"train_losses": [], "train_metrics": [], "valid_metrics": []}
     for epoch in range(n_epochs):
         total_loss = 0.0
@@ -126,8 +142,10 @@ def train(model, optimizer, loss_fn, metric, train_loader, valid_loader,
         val_metric = evaluate_tm(model, valid_loader, metric, device).item()
         history["valid_metrics"].append(val_metric)
         scheduler.step(val_metric)
-        print(f"Epoch {epoch + 1}/{n_epochs}, "
-              f"train loss: {history['train_losses'][-1]:.4f}, "
-              f"train metric: {history['train_metrics'][-1]:.4f}, "
-              f"valid metric: {history['valid_metrics'][-1]:.4f}")
+        logger.info(
+            f"Epoch {epoch + 1}/{n_epochs}, "
+            f"train loss: {history['train_losses'][-1]:.4f}, "
+            f"train metric: {history['train_metrics'][-1]:.4f}, "
+            f"valid metric: {history['valid_metrics'][-1]:.4f}"
+        )
     return history
