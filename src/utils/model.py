@@ -1,5 +1,6 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
+
 
 class SeparableConv2d(nn.Module):
     def __init__(
@@ -34,6 +35,7 @@ class SeparableConv2d(nn.Module):
         x = self.pointwise_conv(x)
         return x
 
+
 class SeparableConvBlock(nn.Module):
     def __init__(
         self,
@@ -58,6 +60,7 @@ class SeparableConvBlock(nn.Module):
     def forward(self, x):
         return self.block(x)
 
+
 class XceptionBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1):
         super().__init__()
@@ -72,7 +75,6 @@ class XceptionBlock(nn.Module):
             ),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-
             SeparableConv2d(
                 out_channels,
                 out_channels,
@@ -109,15 +111,16 @@ class XceptionBlock(nn.Module):
 
         return x
 
+
 class SmallXception(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
 
         self.features = nn.Sequential(
-
             # Stem
             nn.Conv2d(
-                3, 32,
+                3,
+                32,
                 kernel_size=7,
                 stride=2,
                 padding=3,
@@ -129,38 +132,35 @@ class SmallXception(nn.Module):
                 stride=2,
                 padding=1,
             ),
-
             # Block 1
             XceptionBlock(
-                32, 64,
+                32,
+                64,
                 stride=1,
             ),
-
             # Block 2
             XceptionBlock(
-                64, 128,
+                64,
+                128,
                 stride=2,
             ),
-
             # Block 3
             XceptionBlock(
-                128, 256,
+                128,
+                256,
                 stride=2,
             ),
-
             # Block 4
             XceptionBlock(
-                256, 512,
+                256,
+                512,
                 stride=2,
             ),
         )
 
         self.pool = nn.AdaptiveAvgPool2d(1)
 
-        self.classifier = nn.Sequential(
-            nn.Dropout(0.2),
-            nn.Linear(512, num_classes)
-        )
+        self.classifier = nn.Sequential(nn.Dropout(0.2), nn.Linear(512, num_classes))
 
     def forward(self, x):
         x = self.features(x)
@@ -172,3 +172,7 @@ class SmallXception(nn.Module):
         x = self.classifier(x)
 
         return x
+
+def create_model(model_name, num_classes):
+    if model_name == "small-xception":
+        return SmallXception(num_classes)
