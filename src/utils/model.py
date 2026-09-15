@@ -1,8 +1,10 @@
-import torch
-import torch.nn as nn
 import logging
 
+import torch
+import torch.nn as nn
+
 logger = logging.getLogger(__name__)
+
 
 class SeparableConv2d(nn.Module):
     def __init__(
@@ -175,6 +177,7 @@ class SmallXception1(nn.Module):
 
         return x
 
+
 class SmallXception2(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
@@ -185,16 +188,12 @@ class SmallXception2(nn.Module):
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-
             # Block 1
             XceptionBlock(16, 32, stride=1),
-
             # Block 2
             XceptionBlock(32, 64, stride=2),
-
             # Block 3
             XceptionBlock(64, 128, stride=2),
-
             # Block 4
             XceptionBlock(128, 256, stride=2),
         )
@@ -212,19 +211,18 @@ class SmallXception2(nn.Module):
         x = torch.flatten(x, 1)
         return self.classifier(x)
 
+
 def create_model(model_name, num_classes):
     if model_name == "small-xception1":
         return SmallXception1(num_classes)
     if model_name == "small-xception2":
         return SmallXception2(num_classes)
 
+
 def log_number_of_params(model):
     total_params = sum(p.numel() for p in model.parameters())
 
-    trainable_params = sum(
-        p.numel() for p in model.parameters()
-        if p.requires_grad
-    )
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     logger.info(f"Total parameters:     {total_params:,}")
     logger.info(f"Trainable parameters: {trainable_params:,}")
