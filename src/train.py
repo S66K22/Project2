@@ -6,6 +6,8 @@ import torchvision.transforms.v2 as transforms
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 from torchvision.datasets import ImageFolder
+import torchmetrics
+
 
 logger = logging.getLogger(__name__)
 
@@ -90,3 +92,42 @@ def create_train_val_loader(path, batch_size=32, test_size=0.2):
         )
 
     return train_loader, val_loader
+
+def evaluate_tm(model, data_loader, metric, device):
+    model.eval()
+    metric.reset()
+    with torch.no_grad():
+        for X_batch, y_batch in data_loader:
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            y_pred = model(X_batch)
+            metric.update(y_pred, y_batch)
+    return metric.compute()
+
+def train(model, optimizer, loss_fn, metric, train_loader, valid_loader,
+          n_epochs, device, patience=10, factor=0.1):
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", patience=patience, factor=factor)
+    history = {"train_losses": [], "train_metrics": [], "valid_metrics": []}
+    for epoch in range(n_epochs):
+        total_loss = 0.0
+        metric.reset()
+        model.train()
+        for X_batch, y_batch in train_loader:
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            y_pred = model(X_batch)
+            loss = loss_fn(y_pred, y_batch)
+            total_loss += loss.item()
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            metric.update(y_pred, y_batch)
+        history["train_losses"].append(total_loss / len(train_loader))
+        history["train_metrics"].append(metric.compute().item())
+        val_metric = evaluate_tm(model, valid_loader, metric, device).item()
+        history["valid_metrics"].append(val_metric)
+        scheduler.step(val_metric)
+        print(f"Epoch {epoch + 1}/{n_epochs}, "
+              f"train loss: {history['train_losses'][-1]:.4f}, "
+              f"train metric: {history['train_metrics'][-1]:.4f}, "
+              f"valid metric: {history['valid_metrics'][-1]:.4f}")
+    return history
