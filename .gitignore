@@ -2,3 +2,6 @@
 *.ipynb
 data
 *.rar
+logs
+.ipynb_checkpoints
+__pycache__
