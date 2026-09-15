@@ -1,6 +1,7 @@
 import logging
 from collections import Counter
 
+import numpy as np
 import torch
 import torchmetrics
 import torchvision.transforms.v2 as transforms
@@ -95,6 +96,28 @@ def create_train_val_loader(path, batch_size=32, test_size=0.2):
         )
 
     return train_loader, val_loader, train_full.classes
+
+
+def create_subset_from_loader(dataloader):
+    dataset = dataloader.dataset
+
+    # Get labels
+    labels = np.array([dataset[i][1] for i in range(len(dataset))])
+
+    indices = []
+
+    for class_id in range(8):
+        class_indices = np.where(labels == class_id)[0]
+        indices.extend(class_indices[:3])  # 3 images per class
+
+    small_dataset = Subset(dataset, indices)
+
+    small_loader = DataLoader(
+        small_dataset,
+        batch_size=len(small_dataset),
+        shuffle=True,
+    )
+    return small_loader
 
 
 def evaluate_tm(model, data_loader, metric, device):
