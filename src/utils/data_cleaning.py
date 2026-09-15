@@ -61,7 +61,7 @@ def is_image_size_valid(height, width):
 def separate_valid_invalid_images(path, corrupted_files_dir, hashes):
     file_hash = get_file_hash(path)
     if file_hash in hashes:
-        logger.info(
+        logger.debug(
             f"File with path {path} has same hash with file {hashes[file_hash]}."
         )
         corrupted_files_dir = corrupted_files_dir / path.parent.name
@@ -71,14 +71,14 @@ def separate_valid_invalid_images(path, corrupted_files_dir, hashes):
         hashes[file_hash] = path
 
     if find_file_format(path) != "image/jpeg":
-        logger.info(f"File with path {path} is not an image.")
+        logger.debug(f"File with path {path} is not an image.")
         corrupted_files_dir = corrupted_files_dir / path.parent.name
         move_file(path, corrupted_files_dir)
 
     else:
         is_valid, width, height = can_image_be_loaded(path)
         if not is_valid or not is_image_size_valid(height, width):
-            logger.info(f"Invalid/corrupted image: {path}")
+            logger.debug(f"Invalid/corrupted image: {path}")
             corrupted_files_dir = corrupted_files_dir / path.parent.name
             move_file(path, corrupted_files_dir)
 
