@@ -166,16 +166,18 @@ class SmallXception1(nn.Module):
 
         self.classifier = nn.Sequential(nn.Dropout(dropout), nn.Linear(512, num_classes))
 
-    def forward(self, x):
+    def forward(self, x, return_features=False):
         x = self.features(x)
 
         x = self.pool(x)
 
-        x = torch.flatten(x, 1)
+        feat = torch.flatten(x, 1)
 
-        x = self.classifier(x)
+        logits = self.classifier(feat)
 
-        return x
+        if return_features:
+            return logits, feat
+        return logits
 
 
 class SmallXception2(nn.Module):
@@ -206,11 +208,14 @@ class SmallXception2(nn.Module):
             nn.Linear(256, num_classes),
         )
 
-    def forward(self, x):
+    def forward(self, x, return_features=False):
         x = self.features(x)
         x = self.pool(x)
-        x = torch.flatten(x, 1)
-        return self.classifier(x)
+        feat = torch.flatten(x, 1)
+        logits = self.classifier(feat)
+        if return_features:
+            return logits, feat
+        return logits
 
 
 class SEBlock(nn.Module):
@@ -299,17 +304,19 @@ class SmallXception3(nn.Module):
             nn.Linear(512, num_classes),
         )
 
-    def forward(self, x):
+    def forward(self, x, return_features=False):
 
         x = self.features(x)
 
         x = self.pool(x)
 
-        x = torch.flatten(x, 1)
+        feat = torch.flatten(x, 1)
 
-        x = self.classifier(x)
-
-        return x
+        logits = self.classifier(feat)
+        
+        if return_features:
+            return logits, feat
+        return logits
 
 
 def create_model(model_name, num_classes, dropout=0.2):
