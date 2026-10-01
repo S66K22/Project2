@@ -117,7 +117,7 @@ class XceptionBlock(nn.Module):
 
 
 class SmallXception1(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, dropout=0.2):
         super().__init__()
 
         self.features = nn.Sequential(
@@ -164,7 +164,7 @@ class SmallXception1(nn.Module):
 
         self.pool = nn.AdaptiveAvgPool2d(1)
 
-        self.classifier = nn.Sequential(nn.Dropout(0.2), nn.Linear(512, num_classes))
+        self.classifier = nn.Sequential(nn.Dropout(dropout), nn.Linear(512, num_classes))
 
     def forward(self, x):
         x = self.features(x)
@@ -179,7 +179,8 @@ class SmallXception1(nn.Module):
 
 
 class SmallXception2(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, dropout=0.3):
+
         super().__init__()
 
         self.features = nn.Sequential(
@@ -201,7 +202,7 @@ class SmallXception2(nn.Module):
         self.pool = nn.AdaptiveAvgPool2d(1)
 
         self.classifier = nn.Sequential(
-            nn.Dropout(0.3),
+            nn.Dropout(dropout),
             nn.Linear(256, num_classes),
         )
 
@@ -212,11 +213,112 @@ class SmallXception2(nn.Module):
         return self.classifier(x)
 
 
-def create_model(model_name, num_classes):
+class SEBlock(nn.Module):
+    def __init__(self, channels, reduction=16):
+        super().__init__()
+
+        self.squeeze = nn.AdaptiveAvgPool2d(1)
+
+        self.excitation = nn.Sequential(
+            nn.Linear(channels, channels // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(channels // reduction, channels, bias=False),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        b, c, _, _ = x.shape
+
+        # Squeeze: [B, C, H, W] -> [B, C]
+        y = self.squeeze(x).view(b, c)
+
+        # Excitation: [B, C] -> [B, C]
+        y = self.excitation(y)
+
+        # Reshape: [B, C] -> [B, C, 1, 1]
+        y = y.view(b, c, 1, 1)
+
+        # Channel-wise recalibration
+        return x * y
+
+
+class SmallXception3(nn.Module):
+    def __init__(self, num_classes, dropout=0.2):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            # Stem
+            nn.Conv2d(
+                3,
+                32,
+                kernel_size=7,
+                stride=2,
+                padding=3,
+            ),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(
+                kernel_size=3,
+                stride=2,
+                padding=1,
+            ),
+            # Block 1
+            XceptionBlock(
+                32,
+                64,
+                stride=1,
+            ),
+            SEBlock(64, reduction=16),
+            # Block 2
+            XceptionBlock(
+                64,
+                128,
+                stride=2,
+            ),
+            SEBlock(128, reduction=16),
+            # Block 3
+            XceptionBlock(
+                128,
+                256,
+                stride=2,
+            ),
+            SEBlock(256, reduction=16),
+            # Block 4
+            XceptionBlock(
+                256,
+                512,
+                stride=2,
+            ),
+            SEBlock(512, reduction=16),
+        )
+
+        self.pool = nn.AdaptiveAvgPool2d(1)
+
+        self.classifier = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(512, num_classes),
+        )
+
+    def forward(self, x):
+
+        x = self.features(x)
+
+        x = self.pool(x)
+
+        x = torch.flatten(x, 1)
+
+        x = self.classifier(x)
+
+        return x
+
+
+def create_model(model_name, num_classes, dropout=0.2):
     if model_name == "small-xception1":
-        return SmallXception1(num_classes)
+        return SmallXception1(num_classes, dropout)
     if model_name == "small-xception2":
-        return SmallXception2(num_classes)
+        return SmallXception2(num_classes, dropout)
+    if model_name == "small-xception3":
+        return SmallXception2(num_classes, dropout)
 
 
 def log_number_of_params(model):
@@ -226,3 +328,4 @@ def log_number_of_params(model):
 
     logger.info(f"Total parameters:     {total_params:,}")
     logger.info(f"Trainable parameters: {trainable_params:,}")
+
