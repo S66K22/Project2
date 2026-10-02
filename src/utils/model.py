@@ -1,7 +1,9 @@
 import logging
 
+import numpy as np
 import torch
 import torch.nn as nn
+from torchvision import models
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +166,9 @@ class SmallXception1(nn.Module):
 
         self.pool = nn.AdaptiveAvgPool2d(1)
 
-        self.classifier = nn.Sequential(nn.Dropout(dropout), nn.Linear(512, num_classes))
+        self.classifier = nn.Sequential(
+            nn.Dropout(dropout), nn.Linear(512, num_classes)
+        )
 
     def forward(self, x, return_features=False):
         x = self.features(x)
@@ -313,7 +317,34 @@ class SmallXception3(nn.Module):
         feat = torch.flatten(x, 1)
 
         logits = self.classifier(feat)
-        
+
+        if return_features:
+            return logits, feat
+        return logits
+
+
+class VGGOpenSet(nn.Module):
+    """
+    Wraps torchvision VGG16. forward(x, return_features=True) returns both
+    the classification logits and the 4096-d embedding feeding the final
+    Linear layer — that embedding is what the distance-based detector uses.
+    """
+
+    def __init__(self, num_classes):
+        super().__init__()
+        backbone = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1)
+        self.features = backbone.features
+        self.avgpool = backbone.avgpool
+        self.classifier_trunk = backbone.classifier[:-1]  # everything but last Linear
+        in_features = backbone.classifier[-1].in_features
+        self.head = nn.Linear(in_features, num_classes)
+
+    def forward(self, x, return_features=False):
+        x = self.features(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        feat = self.classifier_trunk(x)
+        logits = self.head(feat)
         if return_features:
             return logits, feat
         return logits
@@ -326,6 +357,8 @@ def create_model(model_name, num_classes, dropout=0.2):
         return SmallXception2(num_classes, dropout)
     if model_name == "small-xception3":
         return SmallXception2(num_classes, dropout)
+    if model_name == "vgg":
+        return VGGOpenSet(num_classes)
 
 
 def log_number_of_params(model):
@@ -335,4 +368,3 @@ def log_number_of_params(model):
 
     logger.info(f"Total parameters:     {total_params:,}")
     logger.info(f"Trainable parameters: {trainable_params:,}")
-
