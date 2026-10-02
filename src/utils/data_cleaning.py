@@ -19,6 +19,7 @@ VEHICLE_CLASSES = {
     7: "truck",
 }
 
+
 def get_file_hash(path, chunk_size=8192):
     sha256 = hashlib.sha256()
 
@@ -174,15 +175,18 @@ def extract_vehicles(
 
             crop = image.crop((x1, y1, x2, y2))
 
-            vehicles.append({
-                "image": crop,
-                "class_id": class_id,
-                "class_name": VEHICLE_CLASSES[class_id],
-                "confidence": confidence,
-                "bbox": (x1, y1, x2, y2),
-            })
+            vehicles.append(
+                {
+                    "image": crop,
+                    "class_id": class_id,
+                    "class_name": VEHICLE_CLASSES[class_id],
+                    "confidence": confidence,
+                    "bbox": (x1, y1, x2, y2),
+                }
+            )
 
     return vehicles
+
 
 def image_preprocessing():
     data_dir = Path("data")
@@ -194,11 +198,13 @@ def image_preprocessing():
     hashes = dict()
 
     for data_dir, crop_dir in zip(
-        [train_dir, test_dir, unclean_dir, cropped_dir], ["train", "test", "unclean", "cropped"]
+        [train_dir, test_dir, unclean_dir, cropped_dir],
+        ["train", "test", "unclean", "cropped"],
     ):
         corrupted_file_dir = corrupted_files_dir / crop_dir
         for path in get_file_paths(data_dir):
             separate_valid_invalid_images(path, corrupted_file_dir, hashes)
+
 
 def extrac_vehicle_from_dir():
     data_dir = Path("data")
@@ -207,7 +213,6 @@ def extrac_vehicle_from_dir():
 
     if not cropped_dir.exists():
         cropped_dir.mkdir(parents=True, exist_ok=True)
-        
 
     for path in get_file_paths(train_dir):
         vehicles = extract_vehicles(path, conf_threshold=0.1)
@@ -222,6 +227,4 @@ def extrac_vehicle_from_dir():
             image_dir = cropped_dir / path.parent.name
             if not image_dir.exists():
                 image_dir.mkdir(parents=True, exist_ok=True)
-            vehicle["image"].save(
-                image_dir / image_name
-            )
+            vehicle["image"].save(image_dir / image_name)
